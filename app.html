@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1.0"
+		/>
+		<title>LiteRT.js Model Inference</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+				background: #0a0a0a;
+				color: #e0e0e0;
+				line-height: 1.6;
+				padding: 40px 20px;
+			}
+
+			.container {
+				max-width: 1400px;
+				margin: 0 auto;
+			}
+
+			.main-content {
+				display: flex;
+				flex-direction: row;
+				gap: 30px;
+				align-items: flex-start;
+				width: 100%;
+			}
+
+			.pipeline-section {
+				flex: 1;
+				min-width: 0;
+				width: 0; /* Force flex to work */
+			}
+
+			.output-section {
+				flex: 0 0 400px;
+				min-width: 0;
+				position: sticky;
+				top: 20px;
+			}
+
+			.header {
+				margin-bottom: 30px;
+			}
+
+			.subtitle {
+				font-size: 14px;
+				color: #a0a0a0;
+				font-weight: 400;
+				margin-bottom: 30px;
+			}
+
+			.controls {
+				display: flex;
+				gap: 10px;
+				margin-bottom: 20px;
+				flex-wrap: wrap;
+			}
+
+			button {
+				font-family: "SF Mono", "Monaco", "Courier New", monospace;
+				font-size: 11px;
+				padding: 8px 16px;
+				background: #1a1a1a;
+				color: #ffffff;
+				border: 1px solid #333333;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+				border-radius: 2px;
+			}
+
+			button:hover:not(:disabled) {
+				background: #2a2a2a;
+				border-color: #4a9eff;
+				transform: translateY(-1px);
+				box-shadow: 0 2px 8px rgba(74, 158, 255, 0.2);
+			}
+
+			button:disabled {
+				background: #0f0f0f;
+				border-color: #1a1a1a;
+				color: #4a4a4a;
+				cursor: not-allowed;
+			}
+
+			.status {
+				font-family: "SF Mono", "Monaco", "Courier New", monospace;
+				font-size: 11px;
+				color: #b0b0b0;
+				margin-bottom: 30px;
+				padding: 10px 15px;
+				background: #1a1a1a;
+				border: 1px solid #2a2a2a;
+				border-left: 3px solid #4a9eff;
+			}
+
+			.pipeline {
+				background: #141414;
+				border: 1px solid #2a2a2a;
+				padding: 40px;
+				border-radius: 4px;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+			}
+
+			.pipeline-stage {
+				margin-bottom: 40px;
+			}
+
+			.pipeline-stage:last-child {
+				margin-bottom: 0;
+			}
+
+			.stage-title {
+				font-family: "SF Mono", "Monaco", "Courier New", monospace;
+				font-size: 12px;
+				color: #4a9eff;
+				font-weight: 600;
+				margin-bottom: 8px;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+			}
+
+			.stage-description {
+				font-size: 11px;
+				color: #c0c0c0;
+				margin-bottom: 10px;
+				line-height: 1.5;
+			}
+
+			.stage-explanation {
+				font-size: 10px;
+				color: #a0a0a0;
+				margin-bottom: 12px;
+				line-height: 1.6;
+				font-style: italic;
+			}
+
+			.stage-gpt2 {
+				font-size: 10px;
+				color: #d0d0d0;
+				line-height: 1.7;
+				background: #1a1a1a;
+				padding: 15px;
+				border-left: 3px solid #4a9eff;
+				margin-top: 10px;
+				border-radius: 2px;
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+			}
+
+			.stage-gpt2 strong {
+				color: #4a9eff;
+				font-weight: 600;
+			}
+
+			.output-panel {
+				background: #0f0f0f;
+				border: 1px solid #2a2a2a;
+				padding: 15px;
+				font-family: "SF Mono", "Monaco", "Courier New", monospace;
+				font-size: 10px;
+				color: #b0b0b0;
+				white-space: pre-wrap;
+				height: calc(100vh - 200px);
+				min-height: 500px;
+				overflow-y: auto;
+				line-height: 1.6;
+				border-radius: 4px;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+			}
+
+			.output-section h3 {
+				font-family: "SF Mono", "Monaco", "Courier New", monospace;
+				font-size: 11px;
+				color: #4a9eff;
+				margin-bottom: 10px;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+			}
+
+			.json-explanation {
+				margin-top: 20px;
+				padding: 15px;
+				background: #1a1a1a;
+				border: 1px solid #2a2a2a;
+				border-left: 3px solid #4a9eff;
+				border-radius: 4px;
+				font-size: 10px;
+				color: #c0c0c0;
+				line-height: 1.6;
+			}
+
+			.json-explanation h4 {
+				font-family: "SF Mono", "Monaco", "Courier New", monospace;
+				font-size: 11px;
+				color: #4a9eff;
+				margin-bottom: 10px;
+				text-transform: uppercase;
+				letter-spacing: 0.5px;
+			}
+
+			.json-explanation ul {
+				margin: 10px 0;
+				padding-left: 20px;
+			}
+
+			.json-explanation li {
+				margin-bottom: 6px;
+			}
+
+			.json-explanation strong {
+				color: #4a9eff;
+				font-weight: 600;
+			}
+
+			.json-explanation p {
+				margin-top: 10px;
+			}
+
+			.output-panel::-webkit-scrollbar {
+				width: 6px;
+			}
+
+			.output-panel::-webkit-scrollbar-track {
+				background: #1a1a1a;
+			}
+
+			.output-panel::-webkit-scrollbar-thumb {
+				background: #4a4a4a;
+				border-radius: 3px;
+			}
+
+			.output-panel::-webkit-scrollbar-thumb:hover {
+				background: #5a5a5a;
+			}
+
+			@media (max-width: 1200px) {
+				.main-content {
+					flex-direction: column;
+				}
+
+				.output-section {
+					flex: 1;
+					width: 100%;
+					position: relative;
+					top: 0;
+				}
+
+				.output-panel {
+					height: 400px;
+				}
+			}
+
+			@media (max-width: 768px) {
+				.pipeline {
+					padding: 30px 20px;
+				}
+
+				.stage-visual {
+					width: 120px;
+					height: 70px;
+					font-size: 10px;
+				}
+
+				.stage-label {
+					font-size: 9px;
+				}
+
+				.stage-label.left {
+					right: calc(100% + 15px);
+				}
+
+				.stage-label.right {
+					left: calc(100% + 15px);
+				}
+
+				.stage-description {
+					width: 200px;
+					font-size: 9px;
+				}
+
+				.stage-explanation {
+					width: 250px;
+					font-size: 8px;
+					top: calc(100% + 50px);
+				}
+
+				.stage-gpt2 {
+					width: 280px;
+					font-size: 8px;
+					top: calc(100% + 90px);
+					padding: 10px;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<div class="header">
+				<p class="subtitle">Run TensorFlow Lite models in your browser with Google&apos;s LiteRT.js runtime.</p>
+			</div>
+
+			<div class="controls">
+				<button id="uploadBtn">Upload Model</button>
+				<button
+					id="runBtn"
+					disabled
+				>
+					Run Inference
+				</button>
+				<button
+					id="downloadBtn"
+					style="display: none"
+					title="Download inference results as JSON file"
+				>
+					Download Results
+				</button>
+				<button
+					id="copyBtn"
+					style="display: none"
+				>
+					Copy to Clipboard
+				</button>
+			</div>
+
+			<div
+				class="status"
+				id="status"
+			>
+				Initializing LiteRT runtime...
+			</div>
+
+			<div class="main-content">
+				<div class="pipeline-section">
+					<div
+						class="pipeline"
+						id="pipeline"
+					>
+						<div
+							class="pipeline-stage"
+							id="stage-load"
+						>
+							<div class="stage-title">1. Load LiteRT</div>
+							<div class="stage-description">Load WebAssembly runtime files</div>
+							<div class="stage-explanation">
+								WebAssembly (WASM) files contain optimized machine code that runs in your browser. These files power the LiteRT.js runtime, enabling fast ML computations without
+								server-side processing.
+							</div>
+							<div class="stage-gpt2">
+								<strong>For GPT-2:</strong> The WASM runtime loads specialized operations needed for transformer models like GPT-2. This includes matrix multiplication kernels,
+								attention mechanisms, and activation functions optimized for browser execution. Without this runtime, GPT-2&apos;s complex neural network layers couldn&apos;t run
+								efficiently in JavaScript.
+							</div>
+						</div>
+
+						<div
+							class="pipeline-stage"
+							id="stage-compile"
+						>
+							<div class="stage-title">2. Compile Model</div>
+							<div class="stage-description">Compile .tflite model for execution</div>
+							<div class="stage-explanation">
+								A .tflite file is TensorFlow Lite format - a compressed, optimized neural network model. It contains the trained weights and architecture needed to make predictions.
+								Compiling prepares it for efficient execution in the browser.
+							</div>
+							<div class="stage-gpt2">
+								<strong>For GPT-2:</strong> Your GPT-2 .tflite file contains the transformer architecture (12 layers, 64 hidden dimensions) and all learned weights from training on
+								text data. The compiler analyzes the model graph, identifies operations like multi-head attention and feed-forward networks, and prepares them for execution.
+								GPT-2&apos;s 50257-token vocabulary and embedding layers are loaded into memory.
+							</div>
+						</div>
+
+						<div
+							class="pipeline-stage"
+							id="stage-input"
+						>
+							<div class="stage-title">3. Prepare Input</div>
+							<div class="stage-description">Create input tensor from model shape</div>
+							<div class="stage-explanation">
+								A tensor is a multi-dimensional array of numbers (like a matrix). The input tensor matches the model&apos;s expected format - shape (dimensions) and data type
+								(int32/float32). This is your data prepared for the model to process.
+							</div>
+							<div class="stage-gpt2">
+								<strong>For GPT-2:</strong> GPT-2 expects input tokens as integers representing word IDs from its vocabulary. The input shape is [1, 64] - one sequence of 64 tokens.
+								Each token is an integer (0-50256) representing a word or subword. For example, "Hello world" becomes token IDs like [15496, 995]. The model processes these tokens
+								through embedding layers to convert them into dense vector representations.
+							</div>
+						</div>
+
+						<div
+							class="pipeline-stage"
+							id="stage-inference"
+						>
+							<div class="stage-title">4. Run Inference</div>
+							<div class="stage-description">Execute model on CPU/GPU</div>
+							<div class="stage-explanation">
+								Inference is the process of running data through a trained model to get predictions. The model processes your input tensor through its neural network layers, performing
+								calculations to produce results. Can run on CPU (WASM) or GPU (WebGPU) for speed.
+							</div>
+							<div class="stage-gpt2">
+								<strong>For GPT-2:</strong> The model runs your token sequence through 12 transformer decoder layers. Each layer performs self-attention (finding relationships between
+								tokens) and feed-forward processing. The attention mechanism allows GPT-2 to understand context - how each word relates to others in the sequence. After all layers, the
+								model outputs logits (raw scores) for each position predicting the next token. This happens entirely in your browser - no data sent to servers.
+							</div>
+						</div>
+
+						<div
+							class="pipeline-stage"
+							id="stage-output"
+						>
+							<div class="stage-title">5. Process Outputs</div>
+							<div class="stage-description">Extract and analyze output tensors</div>
+							<div class="stage-explanation">
+								Outputs are the model&apos;s predictions - also tensors containing numbers. These represent probabilities, classifications, or numerical predictions depending on your
+								model. We extract these values, calculate statistics (min, max, mean), and make them usable.
+							</div>
+							<div class="stage-gpt2">
+								<strong>For GPT-2:</strong> GPT-2 produces multiple outputs: logits (shape [1, 64, 50257]) showing probability scores for each of 50257 possible next tokens at each
+								position, and hidden states (shape [1, 2, 12, 64, 64]) from each transformer layer. The logits can be converted to probabilities using softmax, then sampled to generate
+								text. The hidden states contain rich representations learned by each layer - useful for understanding what the model &quot;sees&quot; at different depths. We extract
+								these, calculate statistics, and make them available for text generation or analysis.
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="output-section">
+					<h3>Console Output</h3>
+					<div
+						class="output-panel"
+						id="output"
+					></div>
+					<div
+						class="json-explanation"
+						id="jsonExplanation"
+						style="display: none"
+					>
+						<h4>What is the JSON file?</h4>
+						<p>The downloaded JSON contains your model&apos;s inference results:</p>
+						<ul>
+							<li><strong>outputs</strong>: Array of model predictions (tensors)</li>
+							<li><strong>data</strong>: Raw numbers from the model - these are the actual predictions</li>
+							<li><strong>shape</strong>: Tensor dimensions, e.g., [1, 64, 50257] means 1 batch, 64 positions, 50257 possible tokens</li>
+							<li><strong>dtype</strong>: Data type - &apos;float32&apos; for decimals, &apos;int32&apos; for integers</li>
+							<li><strong>stats</strong>: Statistics (min, max, mean, std, sum) calculated from the data</li>
+							<li><strong>totalElements</strong>: Total number of values in the tensor</li>
+						</ul>
+						<p><strong>For GPT-2:</strong> Logits show probability scores for each possible next token. Hidden states contain representations from each transformer layer.</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<input
+			type="file"
+			id="fileInput"
+			accept=".tflite"
+			style="display: none"
+		/>
+
+		<script
+			type="module"
+			src="./app.ts"
+		></script>
+	</body>
+</html>

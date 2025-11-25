@@ -1,0 +1,217 @@
+# Historical Context
+
+## 2025-01-XX - Converted to Browser-Based LiteRT.js Solution
+
+### Problem
+
+LiteRT.js requires browser DOM APIs (`document`, `window`) which don&apos;t exist in Bun/Node.js runtime. Error: `ReferenceError: document is not defined`.
+
+### Solution
+
+Created browser-based setup using Bun.serve() to host HTML page that runs LiteRT.js in the browser.
+
+### Changes Made
+
+**File: `index.ts` (Lines 1-44)**
+
+-   Converted from direct Node.js execution to Bun HTTP server
+-   Serves `app.html` at root route `/`
+-   Serves Wasm files from `node_modules/@litertjs/core/wasm/` at `/wasm/*` route
+-   Sets proper CORS headers (`Cross-Origin-Embedder-Policy`, `Cross-Origin-Opener-Policy`) required for SharedArrayBuffer
+-   Handles content types: `application/wasm` for `.wasm`, `application/javascript` for `.js`
+-   Type safety: Added null checks for `fileName` and `import.meta.dir`
+
+**File: `app.html` (New)**
+
+-   HTML page with UI for running inference
+-   Status display and output log area
+-   Button to trigger inference
+-   Imports `app.ts` as module script
+
+**File: `app.ts` (New)**
+
+-   Browser-side TypeScript code that runs LiteRT.js
+-   Initializes LiteRT with Wasm files from `/wasm/` endpoint
+-   Loads model from GitHub raw URL
+-   Displays model input/output details
+-   Implements inference pipeline:
+    -   Creates input tensor from model shape
+    -   Runs model inference
+    -   Processes outputs (moves to CPU, reads data)
+    -   Cleans up tensors
+-   Error handling and logging to UI
+
+### Key Learnings
+
+-   LiteRT.js is **browser-only** - requires DOM APIs
+-   Must serve Wasm files with proper CORS headers for SharedArrayBuffer
+-   Use `Bun.serve()` to create web server for browser-based ML inference
+-   Wasm files need `application/wasm` content type
+-   Browser environment provides `document`, `window` APIs needed by LiteRT.js
+
+### Previous Implementation (Node.js - Failed)
+
+-   Attempted to run LiteRT.js directly in Bun
+-   Failed because LiteRT.js uses browser-only APIs
+-   Error: `ReferenceError: document is not defined`
+
+### Usage
+
+1. Run: `bun run index.ts`
+2. Open browser: `http://localhost:3000`
+3. Upload a `.tflite` model file (find models on HuggingFace or Kaggle)
+4. Click "Run Inference" button
+5. View results in output log
+
+## 2025-01-XX - Fixed Model Loading (404 Error)
+
+### Problem
+
+-   Model URL returned 404 (model doesn&apos;t exist at GitHub URL)
+-   Error: `Model provided has model identifier ' Not', should be 'TFL3'` (invalid file loaded)
+
+### Solution
+
+Changed from remote URL to local file upload.
+
+### Changes Made
+
+**File: `app.ts` (Lines 13-85)**
+
+-   Removed hardcoded GitHub model URL
+-   Added file upload functionality via `<input type="file">`
+-   `loadModelFromFile()` function loads model from uploaded file
+-   Reads file as `Uint8Array` and passes to `loadAndCompile()`
+-   Better error handling for model loading failures
+
+**File: `app.html` (Lines 60-63)**
+
+-   Added note with links to HuggingFace and Kaggle for finding models
+-   Styled info box with yellow background
+
+### Key Learnings
+
+-   `loadAndCompile()` accepts `Uint8Array` directly (not just URLs)
+-   Users need to provide their own `.tflite` model files
+-   File upload is more reliable than hardcoded URLs
+
+## 2025-01-XX - Fixed TypeScript DOM Type Errors
+
+### Problem
+
+TypeScript errors: DOM types not recognized (`document`, `HTMLDivElement`, etc.)
+
+-   Error: `Cannot find name &apos;document&apos;`
+-   Error: `Property &apos;textContent&apos; does not exist on type &apos;HTMLDivElement&apos;`
+-   Error: `Property &apos;shape&apos; does not exist on type &apos;TensorType&apos;`
+
+### Solution
+
+Added DOM types to TypeScript config and fixed TensorType property access.
+
+### Changes Made
+
+**File: `tsconfig.json` (Line 4)**
+
+-   Added `"DOM"` to `lib` array: `"lib": ["ESNext", "DOM"]`
+-   Enables DOM type definitions for browser APIs
+
+**File: `app.ts` (Lines 62, 130)**
+
+-   Fixed event handler type: `(e: Event)` instead of `(e)`
+-   Fixed TensorType shape access: `outputTensor.type.layout.dimensions` instead of `outputTensor.type.shape`
+-   TensorType structure: `{ dtype, layout: { dimensions } }`
+
+### Key Learnings
+
+-   Browser code needs `"DOM"` in TypeScript `lib` config
+-   TensorType uses `layout.dimensions`, not `shape` directly
+-   Event handlers need explicit `Event` type annotation
+
+## 2025-01-XX - Fixed Input Tensor Type Mismatch
+
+### Problem
+
+Error: `Input tensor for input_1 at position 0 has type float32, but signature expects int32`
+
+-   Code always created `Float32Array` regardless of model&apos;s expected input type
+-   Model required `int32` input but received `float32`
+
+### Solution
+
+Check model&apos;s input `dtype` and create appropriate typed array.
+
+### Changes Made
+
+**File: `app.ts` (Lines 105-118)**
+
+-   Added dtype check from `firstInput.dtype`
+-   Create `Int32Array` for `int32` inputs (fill with 0)
+-   Create `Float32Array` for `float32` inputs (fill with 0.5)
+-   Added error handling for unsupported dtypes
+-   Improved logging to show dtype being used
+
+### Key Learnings
+
+-   Always check model&apos;s input `dtype` before creating tensors
+-   `Int32Array` for integer inputs, `Float32Array` for float inputs
+-   Different models may require different input types
+-   Use `getInputDetails()` to get expected dtype before creating inputs
+
+## 2025-01-XX - Fixed Tensor Accelerator Move Error
+
+### Problem
+
+Error: `Accelerator wasm does not support moving to wasm`
+
+-   Code always tried to move output tensors to "wasm" accelerator
+-   When model runs on "wasm", outputs are already on "wasm"
+-   Cannot move tensor to same accelerator it&apos;s already on
+
+### Solution
+
+Check tensor&apos;s current accelerator before moving. Only move if not already on "wasm".
+
+### Changes Made
+
+**File: `app.ts` (Lines 137-147)**
+
+-   Added check: `if (outputTensor.accelerator === "wasm")`
+-   Use tensor directly if already on "wasm"
+-   Only call `moveTo("wasm")` if tensor is on different accelerator (e.g., "webgpu")
+-   Only delete moved tensors (not original if already on wasm)
+
+### Key Learnings
+
+-   Check `tensor.accelerator` before calling `moveTo()`
+-   Tensors already on "wasm" can call `toTypedArray()` directly
+-   Only move tensors when they&apos;re on different accelerator
+-   Models compiled with "wasm" accelerator keep outputs on "wasm"
+
+## 2025-01-XX - Fixed Stack Overflow for Large Outputs
+
+### Problem
+Error: `Maximum call stack size exceeded`
+- Model outputs very large arrays (e.g., shape `[1, 64, 50257]` = 3.2M elements)
+- `Array.from()` + `Math.min(...array)` caused stack overflow
+- Converting huge TypedArrays to regular arrays consumed too much memory
+
+### Solution
+Process TypedArrays directly without conversion, limit stored data samples.
+
+### Changes Made
+
+**File: `app.ts` (Lines 1, 14-25, 159-184, 280-325)**
+- Import `TypedArray` type from `@litertjs/core`
+- Updated `getOutputStats()` to work with `TypedArray` directly
+- Calculate stats using loops instead of spreading (`Math.min(...array)`)
+- Limit stored data to first 10,000 elements for large outputs
+- Added `totalElements` field to track full array size
+- Process data in-place without converting to regular arrays
+
+### Key Learnings
+- Never spread large arrays: `Math.min(...array)` fails for huge arrays
+- Use loops for stats calculation on large datasets
+- Work with TypedArrays directly when possible
+- Sample large outputs instead of storing everything
+- Large models (3M+ elements) need special handling
