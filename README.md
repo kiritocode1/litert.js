@@ -1,67 +1,138 @@
-# LiteRT.js Model Inference
+# LiteRT.js Model Inference - Browser-Based ML Runtime
 
-Run TensorFlow Lite (`.tflite`) models in your browser using Google&apos;s LiteRT.js runtime.
+🎥 **Video Tutorial**: [Watch on YouTube](https://youtu.be/DFZGcZXiiLE?si=4Avs3knkFsnxr4Hz)
 
-## Quick Start
+Run TensorFlow Lite models directly in your browser using Google&apos;s LiteRT.js runtime. No server-side processing required - everything runs locally in your browser with WebAssembly acceleration.
 
-### 1. Install Dependencies
+## 🚀 Features
+
+-   **Browser-Based Inference**: Run ML models entirely in your browser - no data sent to servers
+-   **WebAssembly Acceleration**: Fast CPU inference via XNNPack-optimized WASM
+-   **WebGPU Support**: GPU acceleration for Chromium-based browsers
+-   **GPT-2 Compatible**: Optimized for transformer models like GPT-2
+-   **Interactive UI**: Visual pipeline explanation with real-time inference results
+-   **Export Results**: Download inference results as JSON or copy to clipboard
+
+## 📋 Requirements
+
+-   Bun runtime (v1.3.2+)
+-   Modern browser with WebAssembly support
+-   `.tflite` model files
+
+## 🛠️ Installation
 
 ```bash
+# Install dependencies
 bun install
-```
 
-### 2. Start the Server
-
-```bash
+# Start the server
 bun run index.ts
 ```
 
 Server runs at `http://localhost:3000`
 
-### 3. Open in Browser
+## 📖 Usage
 
-Open `http://localhost:3000` in your browser.
+1. **Start the server**: `bun run index.ts`
+2. **Open browser**: Navigate to `http://localhost:3000`
+3. **Upload model**: Click &quot;Upload Model&quot; and select a `.tflite` file
+4. **Run inference**: Click &quot;Run Inference&quot; to execute the model
+5. **View results**: Check the console output for detailed results
+6. **Export data**: Download results as JSON or copy to clipboard
 
-### 4. Upload a Model
+## 🎯 How It Works
 
-1. Click **"Upload Model (.tflite)"** button
-2. Select a `.tflite` model file
-3. Wait for model to load (check status message)
+The application demonstrates the complete ML inference pipeline:
 
-### 5. Run Inference
+1. **Load LiteRT**: Initialize WebAssembly runtime files
+2. **Compile Model**: Load and compile `.tflite` model for execution
+3. **Prepare Input**: Create input tensors matching model requirements
+4. **Run Inference**: Execute model on CPU/GPU accelerator
+5. **Process Outputs**: Extract and analyze output tensors
 
-1. Click **"Run Inference"** button
-2. View results in the output log
+## 📊 Understanding the Results
 
-## Finding Models
+### JSON Output Structure
+
+```json
+{
+  "metadata": {
+    "description": "LiteRT.js Model Inference Results",
+    "timestamp": "2025-01-XX...",
+    "model": "GPT-2 LiteRT Model"
+  },
+  "outputs": [
+    {
+      "name": "Identity",
+      "data": [numbers...],
+      "shape": [1, 64, 50257],
+      "dtype": "float32",
+      "stats": {
+        "min": -15.0627,
+        "max": 16.7778,
+        "mean": -0.0060,
+        "std": 2.6681
+      },
+      "totalElements": 3216448
+    }
+  ]
+}
+```
+
+### Field Explanations
+
+-   **data**: Raw prediction numbers from the model
+-   **shape**: Tensor dimensions `[batch, ...dimensions]`
+-   **dtype**: Data type (`float32` for decimals, `int32` for integers)
+-   **stats**: Statistics calculated from the output data
+-   **totalElements**: Total number of values in the tensor
+
+### For GPT-2 Models
+
+-   **Logits** (`[1, 64, 50257]`): Probability scores for each of 50,257 possible next tokens
+-   **Hidden States** (`[1, 2, 12, 64, 64]`): Layer-wise representations from transformer layers
+
+## 🔧 Technical Details
+
+-   **Runtime**: LiteRT.js (Google&apos;s WebAI runtime)
+-   **Acceleration**: WebAssembly (XNNPack) for CPU, WebGPU for GPU
+-   **Model Format**: TensorFlow Lite (`.tflite`)
+-   **Framework**: Bun + TypeScript
+-   **UI**: Vanilla HTML/CSS/TypeScript
+
+## 📁 Project Structure
+
+```
+mlmodel/
+├── index.ts          # Bun server (serves HTML + WASM files)
+├── app.html          # Main UI with pipeline explanations
+├── app.ts            # Browser-side inference logic
+├── package.json      # Dependencies
+└── README.md         # This file
+```
+
+## 🌐 Finding Models
 
 Download `.tflite` models from:
 
 -   **[HuggingFace](https://huggingface.co/models?library=tflite)** - Search for TFLite models
 -   **[Kaggle](https://www.kaggle.com/models?framework=tfLite)** - Browse TFLite models
 
-## Features
+## 🔒 Privacy
 
--   ✅ Browser-based ML inference (no server-side processing)
--   ✅ WebGPU acceleration support (Chrome/Edge)
--   ✅ CPU acceleration via XNNPack (all browsers)
--   ✅ File upload interface
--   ✅ Real-time inference results
+-   All inference runs entirely in your browser
+-   No data is sent to external servers
+-   Models and results stay on your machine
 
-## How It Works
+## 📝 License
 
-1. **Server** (`index.ts`) - Serves HTML page and Wasm files
-2. **Browser** (`app.ts`) - Loads LiteRT.js runtime and runs models
-3. **Models** - Upload `.tflite` files directly in the browser
+MIT License - feel free to use and modify.
 
-## Requirements
+## 🔗 Links
 
--   Bun runtime (v1.3.2+)
--   Modern browser with WebAssembly support
--   `.tflite` model files
+-   **Website**: https://aryank.space/
+-   **Channel**: BLANK SPACE TECH
 
-## Notes
+## 🙏 Credits
 
--   Models run entirely in the browser (no data sent to server)
--   WebGPU requires Chrome/Edge (Chromium-based browsers)
--   CPU mode works on all modern browsers
+Built with [LiteRT.js](https://ai.google.dev/edge/litert/web) by Google.
